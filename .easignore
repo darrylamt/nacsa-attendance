@@ -1,0 +1,6 @@
+.claude
+.expo
+.git
+.vscode
+node_modules
+*.log
