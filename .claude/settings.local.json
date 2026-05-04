@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(npm install *)",
-      "Bash(del \"c:\\\\Users\\\\Darryl Amoatey\\\\OneDrive - Smart Workplace\\\\Documents\\\\attendance\\\\src\\\\utils\\\\faceMatching.ts\")"
+      "Bash(del \"c:\\\\Users\\\\Darryl Amoatey\\\\OneDrive - Smart Workplace\\\\Documents\\\\attendance\\\\src\\\\utils\\\\faceMatching.ts\")",
+      "Bash(npx eas-cli@latest build:view 9a6a34f4-cc83-4e51-ae74-a533c3836670 --json)",
+      "Bash(copy \"c:/Users/Darryl Amoatey/OneDrive - Smart Workplace/Documents/attendance/assets/logo.png\" \"c:/Users/Darryl Amoatey/OneDrive - Smart Workplace/Documents/attendance/assets/icon.png\")"
     ]
   }
 }

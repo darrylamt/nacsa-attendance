@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { useColors, font, spacing, radius } from '../theme/colors';
+import { rs, rf } from '../utils/responsive';
 import { RootStackParamList } from '../types';
 import { formatDate } from '../utils/clockLogic';
 import { useOfflineSync } from '../hooks/useOfflineSync';
@@ -220,18 +221,18 @@ const styles = StyleSheet.create({
   },
   logo: { width: 160, height: 60 },
   orgFull: {
-    fontSize: font.xs,
+    fontSize: rf(font.xs),
     fontWeight: '600',
     letterSpacing: 0.4,
     textAlign: 'center',
     textTransform: 'uppercase',
     marginTop: spacing.xs,
-    lineHeight: 16,
+    lineHeight: rs(16),
   },
-  subtitle: { fontSize: font.sm, letterSpacing: 1, marginTop: spacing.xs },
+  subtitle: { fontSize: rf(font.sm), letterSpacing: 1, marginTop: spacing.xs },
   clockBlock: { alignItems: 'center' },
   timeRow: { flexDirection: 'row', alignItems: 'flex-end', gap: spacing.sm },
-  time: { fontSize: 72, fontWeight: '100', letterSpacing: -2, lineHeight: 80 },
+  time: { fontSize: rf(68), fontWeight: '100', letterSpacing: -2, lineHeight: rf(76) },
   timeRight: {
     flexDirection: 'column',
     alignItems: 'flex-start',
@@ -239,9 +240,9 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
     gap: 2,
   },
-  secs: { fontSize: 28, fontWeight: '200', letterSpacing: -1, lineHeight: 30 },
-  ampm: { fontSize: font.sm, fontWeight: '400', letterSpacing: 1 },
-  date: { fontSize: font.md, fontWeight: '300', marginTop: spacing.sm },
+  secs: { fontSize: rf(26), fontWeight: '200', letterSpacing: -1, lineHeight: rf(28) },
+  ampm: { fontSize: rf(font.sm), fontWeight: '400', letterSpacing: 1 },
+  date: { fontSize: rf(font.md), fontWeight: '300', marginTop: spacing.sm },
   actions: { gap: spacing.md, alignItems: 'center' },
   startButton: {
     borderRadius: radius.lg,
