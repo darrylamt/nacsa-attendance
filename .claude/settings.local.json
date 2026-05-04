@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install *)",
+      "Bash(del \"c:\\\\Users\\\\Darryl Amoatey\\\\OneDrive - Smart Workplace\\\\Documents\\\\attendance\\\\src\\\\utils\\\\faceMatching.ts\")"
+    ]
+  }
+}
