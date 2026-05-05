@@ -1,5 +1,6 @@
 import { API_BASE, API_KEY } from '../config';
 import { StaffProfile, AttendanceRow, FaceDescriptorEntry, ClockEventType, Coords } from '../types';
+import { cacheDescriptors, getCachedDescriptors } from '../utils/storage';
 
 async function request<T>(
   path: string,
@@ -38,10 +39,17 @@ export async function fetchTodayAttendance(staffId: string): Promise<AttendanceR
 }
 
 export async function fetchDescriptors(): Promise<FaceDescriptorEntry[]> {
-  const res = await request<{ success: boolean; data: FaceDescriptorEntry[] }>(
-    `?action=descriptors`,
-  );
-  return res.data;
+  try {
+    const res = await request<{ success: boolean; data: FaceDescriptorEntry[] }>(
+      `?action=descriptors`,
+    );
+    // Cache for offline use
+    cacheDescriptors(res.data).catch(() => {});
+    return res.data;
+  } catch {
+    // Offline — return cached descriptors
+    return getCachedDescriptors();
+  }
 }
 
 export interface ClockPayload {

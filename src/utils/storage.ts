@@ -1,9 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { ClockEvent, StaffProfile } from '../types';
+import { ClockEvent, StaffProfile, FaceDescriptorEntry } from '../types';
 
 const KEYS = {
-  CLOCK_EVENTS: 'nacsa:clock_events',
-  STAFF_PROFILES: 'nacsa:staff_profiles',
+  CLOCK_EVENTS:       'nacsa:clock_events',
+  STAFF_PROFILES:     'nacsa:staff_profiles',
+  DESCRIPTORS_CACHE:  'nacsa:descriptors_cache',
 };
 
 export async function getClockEvents(): Promise<ClockEvent[]> {
@@ -41,6 +42,15 @@ export async function getStaffProfiles(): Promise<StaffProfile[]> {
 export async function getStaffProfile(id: string): Promise<StaffProfile | null> {
   const profiles = await getStaffProfiles();
   return profiles.find((p) => p.id === id) ?? null;
+}
+
+export async function cacheDescriptors(descriptors: FaceDescriptorEntry[]): Promise<void> {
+  await AsyncStorage.setItem(KEYS.DESCRIPTORS_CACHE, JSON.stringify(descriptors));
+}
+
+export async function getCachedDescriptors(): Promise<FaceDescriptorEntry[]> {
+  const raw = await AsyncStorage.getItem(KEYS.DESCRIPTORS_CACHE);
+  return raw ? JSON.parse(raw) : [];
 }
 
 export async function saveStaffProfile(profile: StaffProfile): Promise<void> {

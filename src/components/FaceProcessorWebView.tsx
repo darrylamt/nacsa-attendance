@@ -7,6 +7,8 @@ export interface FaceProcessorRef {
 }
 
 interface Props {
+  /** Local file:// URI if cache is ready, otherwise null → uses remote HTML */
+  localCacheUri: string | null;
   modelsUrl: string;
   faceApiUrl: string;
   onReady: () => void;
@@ -15,7 +17,7 @@ interface Props {
   onError: (message: string) => void;
 }
 
-const buildHtml = (faceApiUrl: string, modelsUrl: string) => `
+const buildRemoteHtml = (faceApiUrl: string, modelsUrl: string) => `
 <!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"></head>
@@ -25,14 +27,12 @@ const buildHtml = (faceApiUrl: string, modelsUrl: string) => `
 let ready = false;
 
 function postToRN(data) {
-  if (window.ReactNativeWebView) {
-    window.ReactNativeWebView.postMessage(JSON.stringify(data));
-  }
+  if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(JSON.stringify(data));
 }
 
 async function init() {
   if (typeof faceapi === 'undefined') {
-    postToRN({ type: 'error', message: 'face-api.js failed to load from server. Check FACE_API_URL in config.ts.' });
+    postToRN({ type: 'error', message: 'face-api.js failed to load. Check FACE_API_URL in config.ts.' });
     return;
   }
   try {
@@ -93,13 +93,16 @@ init();
 `;
 
 export const FaceProcessorWebView = forwardRef<FaceProcessorRef, Props>(
-  ({ modelsUrl, faceApiUrl, onReady, onDescriptor, onNoFace, onError }, ref) => {
+  ({ localCacheUri, modelsUrl, faceApiUrl, onReady, onDescriptor, onNoFace, onError }, ref) => {
     const webViewRef = useRef<WebView>(null);
 
-    // Memoize so the WebView never reloads due to a new object reference on re-render
+    // Local cache → load from file system (works offline)
+    // No cache → load remote HTML (requires internet)
     const source = useMemo(
-      () => ({ html: buildHtml(faceApiUrl, modelsUrl) }),
-      [faceApiUrl, modelsUrl],
+      () => localCacheUri
+        ? { uri: localCacheUri }
+        : { html: buildRemoteHtml(faceApiUrl, modelsUrl) },
+      [localCacheUri, faceApiUrl, modelsUrl],
     );
 
     useImperativeHandle(ref, () => ({
@@ -129,13 +132,16 @@ export const FaceProcessorWebView = forwardRef<FaceProcessorRef, Props>(
         style={styles.offscreen}
         onMessage={handleMessage}
         javaScriptEnabled
-        originWhitelist={['*']}
+        originWhitelist={['*', 'file://']}
+        // Required for local file:// access on Android
+        allowFileAccess
+        allowFileAccessFromFileURLs
+        allowUniversalAccessFromFileURLs
       />
     );
   },
 );
 
 const styles = StyleSheet.create({
-  // Off-screen but NOT opacity:0 — Android suspends JS in invisible WebViews
   offscreen: { width: 100, height: 100, position: 'absolute', left: -200, top: -200 },
 });

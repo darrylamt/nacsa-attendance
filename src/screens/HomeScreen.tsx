@@ -19,14 +19,23 @@ import { rs, rf } from '../utils/responsive';
 import { RootStackParamList } from '../types';
 import { formatDate } from '../utils/clockLogic';
 import { useOfflineSync } from '../hooks/useOfflineSync';
+import NetInfo from '@react-native-community/netinfo';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
 export function HomeScreen({ navigation }: Props) {
   const colors = useColors();
-  const [time, setTime] = useState(new Date());
+  const [time, setTime]       = useState(new Date());
   const [locating, setLocating] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
   const { pendingCount, syncing, syncQueue, refreshCount } = useOfflineSync();
+
+  useEffect(() => {
+    const unsubscribe = NetInfo.addEventListener((state) => {
+      setIsOnline(!!(state.isConnected && state.isInternetReachable));
+    });
+    return unsubscribe;
+  }, []);
 
   useFocusEffect(useCallback(() => { refreshCount(); }, [refreshCount]));
 
@@ -103,6 +112,16 @@ export function HomeScreen({ navigation }: Props) {
       />
 
       <View style={styles.container}>
+        {/* Offline banner */}
+        {!isOnline && (
+          <View style={[styles.offlineBanner, { backgroundColor: colors.warning + '22', borderColor: colors.warning + '55' }]}>
+            <Ionicons name="cloud-offline-outline" size={14} color={colors.warning} />
+            <Text style={[styles.offlineText, { color: colors.warning }]}>
+              You're offline — clock-in unavailable
+            </Text>
+          </View>
+        )}
+
         <View style={styles.headerRow}>
           <View style={{ width: 40 }} />
           <View style={styles.header}>
@@ -141,9 +160,12 @@ export function HomeScreen({ navigation }: Props) {
 
         <View style={styles.actions}>
           <TouchableOpacity
-            style={[styles.startButton, { backgroundColor: colors.accent }]}
-            onPress={handleClockIn}
-            disabled={locating}
+            style={[
+              styles.startButton,
+              { backgroundColor: isOnline ? colors.accent : colors.textMuted },
+            ]}
+            onPress={isOnline ? handleClockIn : undefined}
+            disabled={locating || !isOnline}
             activeOpacity={0.85}
           >
             {locating ? (
@@ -204,6 +226,14 @@ const styles = StyleSheet.create({
     paddingTop: spacing.xl,
     paddingBottom: spacing.xxl,
   },
+  offlineBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
+    borderWidth: 1, borderRadius: radius.md,
+    paddingVertical: spacing.sm, paddingHorizontal: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  offlineText: { fontSize: font.sm, fontWeight: '500' },
+
   headerRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',

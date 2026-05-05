@@ -21,6 +21,7 @@ import { resolveClockIn, LocationError, ShiftError, DayCompleteError } from '../
 import { FaceProcessorWebView, FaceProcessorRef } from '../components/FaceProcessorWebView';
 import { MODELS_URL, FACE_API_URL } from '../config';
 import { rs, rf } from '../utils/responsive';
+import { isCacheReady, downloadModels, getCachedHtmlUri } from '../services/modelCache';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Camera'>;
 
@@ -41,6 +42,8 @@ export function CameraScreen({ navigation, route }: Props) {
   const [permission, requestPermission] = useCameraPermissions();
   const [scanState, setScanState]         = useState<ScanState>('requesting-permission');
   const [webViewError, setWebViewError]   = useState<string | null>(null);
+  const [localCacheUri, setLocalCacheUri] = useState<string | null>(null);
+  const [downloadPct, setDownloadPct]     = useState<number>(0);
   const [matchedStaff, setMatchedStaff]   = useState<{
     staffId: string;
     staffName: string;
@@ -57,6 +60,22 @@ export function CameraScreen({ navigation, route }: Props) {
     (async () => {
       const { granted } = permission?.granted ? permission : await requestPermission();
       if (!granted) { setScanState('no-permission'); return; }
+
+      // Check local model cache — download if missing
+      const cached = await isCacheReady();
+      if (cached) {
+        setLocalCacheUri(getCachedHtmlUri());
+      } else {
+        setScanState('loading-models');
+        try {
+          await downloadModels(FACE_API_URL, MODELS_URL, setDownloadPct);
+          setLocalCacheUri(getCachedHtmlUri());
+        } catch {
+          // Download failed (offline on first run) — use remote HTML
+          setLocalCacheUri(null);
+        }
+      }
+
       if (isVerifyMode && pendingStaffId) {
         try {
           const staff = await fetchStaff(pendingStaffId);
@@ -233,6 +252,7 @@ export function CameraScreen({ navigation, route }: Props) {
       {/* Hidden face-api.js processor — off-screen, NOT opacity:0 */}
       <FaceProcessorWebView
         ref={processorRef}
+        localCacheUri={localCacheUri}
         modelsUrl={MODELS_URL}
         faceApiUrl={FACE_API_URL}
         onReady={handleModelsReady}
@@ -246,6 +266,16 @@ export function CameraScreen({ navigation, route }: Props) {
         <View style={styles.loadingOverlay}>
           <ActivityIndicator color="#FFF" size="large" />
           <Text style={styles.loadingText}>{statusLabel[scanState]}</Text>
+          {scanState === 'loading-models' && downloadPct > 0 && downloadPct < 1 && (
+            <>
+              <View style={styles.progressTrack}>
+                <View style={[styles.progressFill, { width: `${Math.round(downloadPct * 100)}%` as any }]} />
+              </View>
+              <Text style={styles.progressText}>
+                {Math.round(downloadPct * 100)}% — one-time download
+              </Text>
+            </>
+          )}
         </View>
       )}
 
@@ -274,6 +304,15 @@ export function CameraScreen({ navigation, route }: Props) {
 
       {/* Bottom controls */}
       <SafeAreaView style={styles.bottomBar} edges={['bottom']}>
+
+        {/* Lens tip */}
+        {(scanState === 'idle' || scanState === 'no-match') && (
+          <View style={styles.tipPill}>
+            <Text style={styles.tipText}>
+              Wipe your front camera clean before scanning
+            </Text>
+          </View>
+        )}
 
         {/* Status pill */}
         <View style={styles.statusPill}>
@@ -354,6 +393,12 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', gap: spacing.md,
   },
   loadingText: { color: '#F0F0F0', fontSize: rf(font.md) },
+  progressTrack: {
+    width: rs(200), height: 4, backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 2, overflow: 'hidden',
+  },
+  progressFill: { height: '100%', backgroundColor: '#FFF', borderRadius: 2 },
+  progressText: { color: 'rgba(255,255,255,0.6)', fontSize: rf(font.xs) },
 
   errorBanner: {
     position: 'absolute', bottom: rs(200), left: spacing.lg, right: spacing.lg,
@@ -409,6 +454,18 @@ const styles = StyleSheet.create({
 
   pill: { borderRadius: radius.full, paddingVertical: spacing.md, paddingHorizontal: spacing.xl, alignItems: 'center' },
   pillText: { fontSize: rf(font.md), fontWeight: '700' },
+
+  tipPill: {
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    borderRadius: radius.full,
+    paddingVertical: spacing.xs + 2,
+    paddingHorizontal: spacing.md,
+  },
+  tipText: {
+    color: 'rgba(255,255,255,0.6)',
+    fontSize: rf(font.xs),
+    textAlign: 'center',
+  },
 
   ghostPill: { paddingVertical: spacing.sm, paddingHorizontal: spacing.md },
   ghostPillText: { color: 'rgba(255,255,255,0.4)', fontSize: rf(font.sm) },
