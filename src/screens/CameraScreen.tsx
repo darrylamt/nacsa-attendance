@@ -75,7 +75,10 @@ export function CameraScreen({ navigation, route }: Props) {
   }, []);
 
   const handleScan = useCallback(async () => {
-    if (processingRef.current || !cameraRef.current || scanState !== 'idle') return;
+    if (processingRef.current || !cameraRef.current) return;
+    // Allow scan from idle OR no-match (Try Again)
+    if (scanState !== 'idle' && scanState !== 'no-match') return;
+    if (scanState === 'no-match') setScanState('idle');
     processingRef.current = true;
     setScanState('processing');
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -200,7 +203,7 @@ export function CameraScreen({ navigation, route }: Props) {
     );
   }
 
-  const isScanning   = scanState === 'idle';
+  const isScanning   = scanState === 'idle' || scanState === 'no-match';
   const isProcessing = scanState === 'processing' || scanState === 'loading-models' || scanState === 'requesting-permission';
 
   const statusLabel: Partial<Record<ScanState, string>> = {

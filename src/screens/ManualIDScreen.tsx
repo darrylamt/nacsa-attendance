@@ -9,14 +9,19 @@ import {
   Platform,
   ActivityIndicator,
   Animated,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as Haptics from 'expo-haptics';
+import NetInfo from '@react-native-community/netinfo';
 import { useColors, font, spacing, radius } from '../theme/colors';
 import { RootStackParamList } from '../types';
 import { NumericPad } from '../components/NumericPad';
 import { resolveClockIn, LocationError, ShiftError, DayCompleteError } from '../utils/clockIn';
+import { enqueueEvent, newLocalId } from '../utils/queue';
+import { ClockEventType, CLOCK_EVENT_LABELS } from '../types';
+import type { ClockPayload } from '../services/api';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ManualID'>;
 
@@ -26,8 +31,9 @@ const MAX_ID_LENGTH = 7;
 export function ManualIDScreen({ navigation, route }: Props) {
   const colors   = useColors();
   const { coords } = route.params;
-  const [value, setValue]     = useState('');
-  const [loading, setLoading] = useState(false);
+  const [value, setValue]           = useState('');
+  const [loading, setLoading]       = useState(false);
+  const [offlineModal, setOfflineModal] = useState(false);
 
   // Blinking cursor
   const cursorAnim = useRef(new Animated.Value(1)).current;
@@ -44,11 +50,20 @@ export function ManualIDScreen({ navigation, route }: Props) {
     if (value.length < MIN_ID_LENGTH) return;
     setLoading(true);
     try {
+      const net = await NetInfo.fetch();
+      if (!net.isConnected) {
+        setLoading(false);
+        setOfflineModal(true);
+        return;
+      }
       await resolveClockIn(value, coords);
       navigation.replace('Camera', { coords, pendingStaffId: value });
     } catch (err: any) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      if (err instanceof LocationError) {
+      // Network/fetch error → offer offline clock-in
+      if (err.message?.toLowerCase().includes('fetch') || err.message?.toLowerCase().includes('network')) {
+        setOfflineModal(true);
+      } else if (err instanceof LocationError) {
         Alert.alert('Not at Your Office', err.message);
       } else if (err instanceof ShiftError) {
         Alert.alert('Outside Shift Hours', err.message);
@@ -136,6 +151,55 @@ export function ManualIDScreen({ navigation, route }: Props) {
         </KeyboardAvoidingView>
 
       </View>
+
+      {/* Offline clock-in modal */}
+      <Modal visible={offlineModal} transparent animationType="slide">
+        <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.6)' }]}>
+          <View style={[styles.modalCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>You're Offline</Text>
+            <Text style={[styles.modalBody, { color: colors.textSecondary }]}>
+              No connection to the server. Select the clock event to queue it — it will sync automatically when you're back online.
+            </Text>
+
+            {(['clock-in-arrival', 'clock-out-lunch', 'clock-in-lunch', 'clock-out-eod'] as ClockEventType[]).map((type) => (
+              <TouchableOpacity
+                key={type}
+                style={[styles.eventBtn, { backgroundColor: colors.surfaceRaised, borderColor: colors.border }]}
+                onPress={async () => {
+                  setOfflineModal(false);
+                  const payload: ClockPayload = {
+                    staff_id:        value,
+                    event_type:      type,
+                    latitude:        coords.latitude,
+                    longitude:       coords.longitude,
+                    face_verified:   0,
+                    face_confidence: 0,
+                    is_late:         0,
+                  };
+                  await enqueueEvent({
+                    localId:   newLocalId(),
+                    payload,
+                    staffName: value,
+                    eventType: type,
+                    timestamp: Date.now(),
+                  });
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                  navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
+                }}
+              >
+                <Text style={[styles.eventBtnText, { color: colors.text }]}>
+                  {CLOCK_EVENT_LABELS[type]}
+                </Text>
+              </TouchableOpacity>
+            ))}
+
+            <TouchableOpacity onPress={() => setOfflineModal(false)} style={styles.cancelBtn}>
+              <Text style={[styles.cancelText, { color: colors.textSecondary }]}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
     </SafeAreaView>
   );
 }
@@ -190,4 +254,23 @@ const styles = StyleSheet.create({
     alignItems: 'center', marginTop: spacing.md,
   },
   confirmText: { fontSize: font.lg, fontWeight: '700' },
+
+  modalOverlay: {
+    flex: 1, alignItems: 'center', justifyContent: 'flex-end',
+  },
+  modalCard: {
+    width: '100%', borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg,
+    borderWidth: 1, padding: spacing.xl, gap: spacing.md,
+    paddingBottom: spacing.xxl,
+  },
+  modalTitle: { fontSize: font.xl, fontWeight: '600' },
+  modalBody:  { fontSize: font.sm, lineHeight: 20 },
+  eventBtn: {
+    borderRadius: radius.md, borderWidth: 1,
+    paddingVertical: spacing.md, paddingHorizontal: spacing.lg,
+    alignItems: 'center',
+  },
+  eventBtnText: { fontSize: font.md, fontWeight: '500' },
+  cancelBtn: { alignItems: 'center', paddingVertical: spacing.sm, marginTop: spacing.xs },
+  cancelText: { fontSize: font.md },
 });
