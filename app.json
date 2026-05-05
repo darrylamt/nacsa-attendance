@@ -54,6 +54,15 @@
       ]
     ],
     "sdkVersion": "54.0.0",
+    "updates": {
+      "url": "https://u.expo.dev/de55f19b-acad-4f72-9d05-317fc4371efa",
+      "enabled": true,
+      "fallbackToCacheTimeout": 0,
+      "checkAutomatically": "ON_LOAD"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "extra": {
       "eas": {
         "projectId": "de55f19b-acad-4f72-9d05-317fc4371efa"

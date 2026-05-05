@@ -169,9 +169,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xl,
   },
   placeholder: {
-    fontSize: font.xxl,
-    fontWeight: '200',
-    letterSpacing: 4,
+    fontSize: font.md,
+    fontWeight: '400',
+    letterSpacing: 1,
   },
   inputText: {
     fontSize: font.xxl,
